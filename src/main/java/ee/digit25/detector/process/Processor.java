@@ -1,19 +1,19 @@
 package ee.digit25.detector.process;
 
 import ee.digit25.detector.domain.account.common.Account;
-import ee.digit25.detector.domain.account.common.AccountRepository;
 import ee.digit25.detector.domain.account.external.AccountRequester;
 import ee.digit25.detector.domain.account.external.api.AccountModel;
+import ee.digit25.detector.domain.account.feature.FindAccountsFeature;
 import ee.digit25.detector.domain.account.feature.GetOrCreateAccountFeature;
 import ee.digit25.detector.domain.device.common.Device;
-import ee.digit25.detector.domain.device.common.DeviceRepository;
 import ee.digit25.detector.domain.device.external.DeviceRequester;
 import ee.digit25.detector.domain.device.external.api.DeviceModel;
+import ee.digit25.detector.domain.device.feature.FindDevicesFeature;
 import ee.digit25.detector.domain.device.feature.GetOrCreateDeviceFeature;
 import ee.digit25.detector.domain.person.common.Person;
-import ee.digit25.detector.domain.person.common.PersonRepository;
 import ee.digit25.detector.domain.person.external.PersonRequester;
 import ee.digit25.detector.domain.person.external.api.PersonModel;
+import ee.digit25.detector.domain.person.feature.FindPersonsFeature;
 import ee.digit25.detector.domain.person.feature.GetOrCreatePersonFeature;
 import ee.digit25.detector.domain.transaction.TransactionValidator;
 import ee.digit25.detector.domain.transaction.common.Transaction;
@@ -42,7 +42,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class Processor {
 
-    private final int TRANSACTION_BATCH_SIZE = 50;
+    private final int TRANSACTION_BATCH_SIZE = 150;
+
     private final TransactionRequester requester;
     private final TransactionValidator validator;
     private final TransactionVerifier verifier;
@@ -51,16 +52,16 @@ public class Processor {
     private final PersonRequester personRequester;
     private final AccountRequester accountRequester;
     private final DeviceRequester deviceRequester;
-    private final PersonRepository personRepository;
-    private final AccountRepository accountRepository;
-    private final DeviceRepository deviceRepository;
+    private final FindPersonsFeature findPersonsFeature;
+    private final FindAccountsFeature findAccountsFeature;
+    private final FindDevicesFeature findDevicesFeature;
     private final GetOrCreatePersonFeature getOrCreatePersonFeature;
     private final GetOrCreateAccountFeature getOrCreateAccountFeature;
     private final GetOrCreateDeviceFeature getOrCreateDeviceFeature;
     private final Executor transactionValidationExecutor;
 
 
-    @Scheduled(fixedDelay = 1000) //Runs every 1000 ms after the last run
+    @Scheduled(fixedDelay = 25) //Runs every 1000 ms after the last run
     public void process() {
         log.info("Starting to process a batch of transactions of size {}", TRANSACTION_BATCH_SIZE);
 
@@ -194,9 +195,7 @@ public class Processor {
 
     private Map<String, Person> resolvePersonEntities(Set<String> personCodes) {
         // Query existing persons from database
-        List<Person> existingPersons = personRepository.findAll().stream()
-                .filter(p -> personCodes.contains(p.getPersonCode()))
-                .toList();
+        List<Person> existingPersons = findPersonsFeature.byPersonCodes(personCodes);
 
         Map<String, Person> result = new HashMap<>();
         for (Person person : existingPersons) {
@@ -215,9 +214,7 @@ public class Processor {
     }
 
     private Map<String, Account> resolveAccountEntities(Set<String> accountNumbers) {
-        List<Account> existingAccounts = accountRepository.findAll().stream()
-                .filter(a -> accountNumbers.contains(a.getNumber()))
-                .toList();
+        List<Account> existingAccounts = findAccountsFeature.byAccountNumbers(accountNumbers);
 
         Map<String, Account> result = new HashMap<>();
         for (Account account : existingAccounts) {
@@ -235,9 +232,7 @@ public class Processor {
     }
 
     private Map<String, Device> resolveDeviceEntities(Set<String> deviceMacs) {
-        List<Device> existingDevices = deviceRepository.findAll().stream()
-                .filter(d -> deviceMacs.contains(d.getMac()))
-                .toList();
+        List<Device> existingDevices = findDevicesFeature.byDeviceMacs(deviceMacs);
 
         Map<String, Device> result = new HashMap<>();
         for (Device device : existingDevices) {
