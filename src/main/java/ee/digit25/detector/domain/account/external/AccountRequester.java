@@ -6,6 +6,7 @@ import ee.digit25.detector.domain.account.external.api.AccountApi;
 import ee.digit25.detector.domain.account.external.api.AccountApiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,8 +19,9 @@ public class AccountRequester {
     private final AccountApi api;
     private final AccountApiProperties properties;
 
+    @Cacheable(value = "accounts", key = "#number")
     public AccountModel get(String accountNumber) {
-        log.info("Requesting account {}", accountNumber);
+        log.info("Fetching account from API: {}", accountNumber);
 
         return RetrofitRequestExecutor.executeRaw(api.get(properties.getToken(), accountNumber));
     }

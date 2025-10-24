@@ -1,8 +1,11 @@
 package ee.digit25.detector.domain.transaction;
 
 import ee.digit25.detector.domain.account.AccountValidator;
+import ee.digit25.detector.domain.account.external.api.AccountModel;
 import ee.digit25.detector.domain.device.DeviceValidator;
+import ee.digit25.detector.domain.device.external.api.DeviceModel;
 import ee.digit25.detector.domain.person.PersonValidator;
+import ee.digit25.detector.domain.person.external.api.PersonModel;
 import ee.digit25.detector.domain.transaction.common.Transaction;
 import ee.digit25.detector.domain.transaction.external.api.TransactionModel;
 import ee.digit25.detector.domain.transaction.feature.FindTransactionsFeature;
@@ -11,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -22,37 +27,42 @@ public class TransactionValidator {
     private final AccountValidator accountValidator;
     private final FindTransactionsFeature findTransactionsFeature;
 
-    public boolean isLegitimate(TransactionModel transaction) {
+    public boolean isLegitimate(TransactionModel transaction,
+                                Map<String, PersonModel> personCache,
+                                Map<String, AccountModel> accountCache,
+                                Map<String, DeviceModel> deviceCache) {
         boolean isLegitimate = true;
 
-        isLegitimate &= personValidator.isValid(transaction.getRecipient());
-        isLegitimate &= personValidator.isValid(transaction.getSender());
-        isLegitimate &= deviceValidator.isValid(transaction.getDeviceMac());
-        isLegitimate &= accountValidator.isValidSenderAccount(transaction.getSenderAccount(), transaction.getAmount(), transaction.getSender());
-        isLegitimate &= accountValidator.isValidRecipientAccount(transaction.getRecipientAccount(), transaction.getRecipient());
-        isLegitimate &= validateNoBurstTransaction(transaction);
-        isLegitimate &= validateNoMultideviceTransactions(transaction);
-        isLegitimate &= validateValidHistory(transaction);
+        isLegitimate &= personValidator.isValid(transaction.getRecipient(), personCache);
+        isLegitimate &= personValidator.isValid(transaction.getSender(), personCache);
+        isLegitimate &= deviceValidator.isValid(transaction.getDeviceMac(), deviceCache);
+        isLegitimate &= accountValidator.isValidSenderAccount(transaction.getSenderAccount(), transaction.getAmount(), transaction.getSender(), accountCache);
+        isLegitimate &= accountValidator.isValidRecipientAccount(transaction.getRecipientAccount(), transaction.getRecipient(), accountCache);
+
+        // Fetch transaction history ONCE
+        List<Transaction> senderHistory = findTransactionsFeature.bySender(transaction.getSender());
+
+        isLegitimate &= validateNoBurstTransaction(transaction, senderHistory);
+        isLegitimate &= validateNoMultideviceTransactions(transaction, senderHistory);
+        isLegitimate &= validateValidHistory(transaction, senderHistory);
 
         return isLegitimate;
     }
 
-    private boolean validateNoBurstTransaction(TransactionModel transaction) {
+    private boolean validateNoBurstTransaction(TransactionModel transaction, List<Transaction> senderHistory) {
         LocalDateTime since = LocalDateTime.now().minusSeconds(30);
 
-        long transactionCountSince = findTransactionsFeature.bySender(transaction.getSender())
-                .stream()
+        long transactionCountSince = senderHistory.stream()
                 .filter(t -> t.getTimestamp().isAfter(since))
                 .count();
 
         return countBelowThreshold(transactionCountSince, 10);
     }
 
-    private boolean validateNoMultideviceTransactions(TransactionModel transaction) {
+    private boolean validateNoMultideviceTransactions(TransactionModel transaction, List<Transaction> senderHistory) {
         LocalDateTime since = LocalDateTime.now().minusSeconds(10);
 
-        long differentDeviceCountSince = findTransactionsFeature.bySender(transaction.getSender())
-                .stream()
+        long differentDeviceCountSince = senderHistory.stream()
                 .filter(t -> t.getTimestamp().isAfter(since))
                 .map(t -> t.getDevice().getMac())
                 .distinct()
@@ -61,11 +71,10 @@ public class TransactionValidator {
         return countBelowThreshold(differentDeviceCountSince, 2);
     }
 
-    private boolean validateValidHistory(TransactionModel transaction) {
+    private boolean validateValidHistory(TransactionModel transaction, List<Transaction> senderHistory) {
         LocalDateTime since = LocalDateTime.now().minusMinutes(1);
 
-        return findTransactionsFeature.bySender(transaction.getSender())
-                .stream()
+        return senderHistory.stream()
                 .filter(t -> t.getTimestamp().isAfter(since))
                 .allMatch(Transaction::isLegitimate);
     }

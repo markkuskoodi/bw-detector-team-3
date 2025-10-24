@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -17,5 +19,10 @@ public class PersistTransactionFeature {
         log.info("Saving transaction: {}", transaction);
 
         return repository.save(transaction);
+    }
+
+    public void saveAll(List<Transaction> transactions) {
+        log.info("Saving {} transactions", transactions.size());
+        repository.saveAll(transactions);
     }
 }

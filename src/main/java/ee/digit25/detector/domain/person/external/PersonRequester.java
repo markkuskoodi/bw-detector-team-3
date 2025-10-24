@@ -6,6 +6,7 @@ import ee.digit25.detector.domain.person.external.api.PersonApi;
 import ee.digit25.detector.domain.person.external.api.PersonApiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,8 +19,9 @@ public class PersonRequester {
     private final PersonApi api;
     private final PersonApiProperties properties;
 
+    @Cacheable(value = "persons", key = "#personCode")
     public PersonModel get(String personCode) {
-        log.info("Requesting person with personCode {}", personCode);
+        log.info("Fetching person from API: {}", personCode);
 
         return RetrofitRequestExecutor.executeRaw(api.get(properties.getToken(), personCode));
     }
