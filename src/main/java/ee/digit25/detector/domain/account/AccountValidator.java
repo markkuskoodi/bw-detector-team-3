@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -15,40 +16,36 @@ public class AccountValidator {
 
     private final AccountRequester requester;
 
-    public boolean isValidSenderAccount(String accountNumber, BigDecimal amount, String senderPersonCode) {
+    public boolean isValidSenderAccount(String accountNumber, BigDecimal amount, String senderPersonCode, Map<String, AccountModel> accountCache) {
         log.info("Checking if account {} is valid sender account", accountNumber);
+
+        AccountModel account = accountCache.get(accountNumber);
+        if (account == null) {
+            log.error("Account {} not found in cache", accountNumber);
+            return false;
+        }
+
         boolean isValid = true;
-
-        AccountModel account = requester.get(accountNumber);
-
-        isValid &= !isClosed(account);
-        isValid &= isOwner(account, senderPersonCode);
-        isValid &= hasBalance(account, amount);
+        isValid &= !account.getClosed();
+        isValid &= senderPersonCode.equals(account.getOwner());
+        isValid &= account.getBalance().compareTo(amount) >= 0;
 
         return isValid;
     }
 
-    public boolean isValidRecipientAccount(String accountNumber, String recipientPersonCode) {
+    public boolean isValidRecipientAccount(String accountNumber, String recipientPersonCode, Map<String, AccountModel> accountCache) {
         log.info("Checking if account {} is valid recipient account", accountNumber);
+
+        AccountModel account = accountCache.get(accountNumber);
+        if (account == null) {
+            log.error("Account {} not found in cache", accountNumber);
+            return false;
+        }
+
         boolean isValid = true;
-
-        AccountModel account = requester.get(accountNumber);
-
-        isValid &= !isClosed(account);
-        isValid &= isOwner(account, recipientPersonCode);
+        isValid &= !account.getClosed();
+        isValid &= recipientPersonCode.equals(account.getOwner());
 
         return isValid;
-    }
-
-    private boolean isOwner(AccountModel account, String senderPersonCode) {
-        return senderPersonCode.equals(account.getOwner());
-    }
-
-    private boolean hasBalance(AccountModel account, BigDecimal amount) {
-        return account.getBalance().compareTo(amount) >= 0;
-    }
-
-    private boolean isClosed(AccountModel account) {
-        return account.getClosed();
     }
 }

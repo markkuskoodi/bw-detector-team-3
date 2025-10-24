@@ -9,8 +9,6 @@ services:
       - POSTGRES_PASSWORD=GVA0wPDuA9S5f24x
     ports:
       - "5439:5432"
-    volumes:
-      - ~/docker_volumes/devday2025/detector-postgres/data:/var/lib/postgresql/data
 
 volumes:
   postgres:

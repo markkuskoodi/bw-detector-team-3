@@ -2,14 +2,15 @@ package ee.digit25.detector.domain.transaction.feature;
 
 import ee.digit25.detector.domain.transaction.common.Transaction;
 import ee.digit25.detector.domain.transaction.common.TransactionRepository;
+import ee.digit25.detector.domain.transaction.common.Transaction_;
+import ee.digit25.detector.domain.person.common.Person_;
+import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
-
-import static ee.digit25.detector.domain.transaction.common.TransactionSpecification.*;
 
 @Slf4j
 @Service
@@ -18,12 +19,21 @@ public class FindTransactionsFeature {
 
     private final TransactionRepository repository;
 
-    public List<Transaction> bySenderAndTimestamp(String sender, LocalDateTime timestamp) {
-        log.info("Fetching transaction history by sender: {} and timestamp: {}", sender, timestamp);
+    public List<Transaction> bySender(String sender) {
+        log.info("Fetching transaction history by sender: {}", sender);
 
-        return repository.findAll(
-                senderEquals(sender)
-                        .and(timestampIsAfter(timestamp))
-        );
+        Specification<Transaction> spec = (root, query, builder) -> {
+            // Eager fetch relationships to avoid N+1 queries
+            root.fetch(Transaction_.sender, JoinType.LEFT);
+            root.fetch(Transaction_.device, JoinType.LEFT);
+
+            // WHERE clause: filter by sender's person code
+            return builder.equal(
+                root.get(Transaction_.sender).get(Person_.personCode),
+                sender
+            );
+        };
+
+        return repository.findAll(spec);
     }
 }

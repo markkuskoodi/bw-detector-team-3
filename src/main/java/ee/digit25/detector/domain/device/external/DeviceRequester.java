@@ -6,6 +6,7 @@ import ee.digit25.detector.domain.device.external.api.DeviceApi;
 import ee.digit25.detector.domain.device.external.api.DeviceApiProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,8 +19,9 @@ public class DeviceRequester {
     private final DeviceApi api;
     private final DeviceApiProperties properties;
 
+    @Cacheable(value = "devices", key = "#mac")
     public DeviceModel get(String mac) {
-        log.info("Requesting device with mac({})", mac);
+        log.info("Fetching device from API: {}", mac);
 
         return RetrofitRequestExecutor.executeRaw(api.get(properties.getToken(), mac));
     }
