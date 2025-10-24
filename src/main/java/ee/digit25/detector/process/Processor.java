@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class Processor {
 
-    private final int TRANSACTION_BATCH_SIZE = 150;
+    private final int TRANSACTION_BATCH_SIZE = 200;
 
     private final TransactionRequester requester;
     private final TransactionValidator validator;
@@ -61,7 +61,7 @@ public class Processor {
     private final Executor transactionValidationExecutor;
 
 
-    @Scheduled(fixedDelay = 25) //Runs every 1000 ms after the last run
+    @Scheduled(fixedDelay = 40) //Runs every 1000 ms after the last run
     public void process() {
         log.info("Starting to process a batch of transactions of size {}", TRANSACTION_BATCH_SIZE);
 
