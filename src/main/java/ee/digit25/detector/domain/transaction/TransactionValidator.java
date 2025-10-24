@@ -40,10 +40,10 @@ public class TransactionValidator {
     private boolean validateNoBurstTransaction(TransactionModel transaction) {
         LocalDateTime since = LocalDateTime.now().minusSeconds(30);
 
-        long transactionCountSince = findTransactionsFeature.bySender(transaction.getSender())
-                .stream()
-                .filter(t -> t.getTimestamp().isAfter(since))
-                .count();
+        long transactionCountSince = findTransactionsFeature.bySenderAndTimestamp(
+                transaction.getSender(),
+                since
+        ).size();
 
         return countBelowThreshold(transactionCountSince, 10);
     }
@@ -51,12 +51,10 @@ public class TransactionValidator {
     private boolean validateNoMultideviceTransactions(TransactionModel transaction) {
         LocalDateTime since = LocalDateTime.now().minusSeconds(10);
 
-        long differentDeviceCountSince = findTransactionsFeature.bySender(transaction.getSender())
-                .stream()
-                .filter(t -> t.getTimestamp().isAfter(since))
-                .map(t -> t.getDevice().getMac())
-                .distinct()
-                .count();
+        long differentDeviceCountSince = findTransactionsFeature.bySenderAndTimestamp(
+                transaction.getSender(),
+                since
+        ).stream().map(t -> t.getDevice().getMac()).distinct().count();
 
         return countBelowThreshold(differentDeviceCountSince, 2);
     }
@@ -64,10 +62,10 @@ public class TransactionValidator {
     private boolean validateValidHistory(TransactionModel transaction) {
         LocalDateTime since = LocalDateTime.now().minusMinutes(1);
 
-        return findTransactionsFeature.bySender(transaction.getSender())
-                .stream()
-                .filter(t -> t.getTimestamp().isAfter(since))
-                .allMatch(Transaction::isLegitimate);
+        return findTransactionsFeature.bySenderAndTimestamp(
+                transaction.getSender(),
+                since
+        ).stream().allMatch(Transaction::isLegitimate);
     }
 
     private boolean countBelowThreshold(long count, int threshold) {
